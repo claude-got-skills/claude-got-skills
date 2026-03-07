@@ -222,13 +222,28 @@ The marketplace.json at `.claude-plugin/marketplace.json` enables `npx skills ad
 
 ## Spec Review Findings
 
-### Browser Eval Spec Review
+Full review files: `docs/specs/browser-eval-review.md` and `docs/specs/freshness-pipeline-review.md`
 
-(To be appended when review agent completes — check if `docs/specs/browser-eval-spec.md` has been updated with review notes, or check memory files.)
+### Browser Eval Spec — Top Issues
 
-### Freshness Pipeline Spec Review
+1. `find role textbox fill` syntax may be wrong — need fallback to snapshot + @ref
+2. No auth state expiration detection — add post-load validation
+3. No per-prompt error handling — one failure kills the batch
+4. No inter-prompt delays — risk of rate limiting
+5. Copy button / thinking panel / Continue button locators unspecified
+6. Manual skill toggle has no verification step
+7. n=5 is qualitative only — frame expectations accordingly
 
-(To be appended when review agent completes — check if `docs/specs/freshness-pipeline-spec.md` has been updated with review notes, or check memory files.)
+### Freshness Pipeline Spec — Top Issues
+
+1. **BUG: Wrong URL** — `support.anthropic.com` should be `support.claude.com`
+2. No content normalization before hashing — will produce false-positive diffs
+3. URL-to-KB-file mapping not defined in config.py
+4. No alerting on scrape failures (only on changes)
+5. Verify Jina Reader works for code.claude.com pages before building
+6. Merge diff.py into report.py for MVP simplicity
+7. Missing run-history tracking (IMS has pipeline-log-helper.sh)
+8. launchd sleep/wake constraint noted (catch-up on wake, fine for twice-daily)
 
 ---
 
