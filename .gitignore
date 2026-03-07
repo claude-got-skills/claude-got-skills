@@ -12,6 +12,23 @@ __pycache__/
 # Eval raw results (keep reports, gitignore raw JSON)
 evals/eval-results-*.json
 
+# Firecrawl scrape cache
+.firecrawl/
+
+# Browser eval auth state and raw results
+evals/claude-ai-auth-state.json
+evals/browser-eval-*/
+
+# Freshness pipeline artifacts
+pipeline/checkpoint.json
+pipeline/reports/
+pipeline/logs/
+.venv/
+
+# Skill-creator eval artifacts
+eval-set-*.json
+eval-trigger-*.txt
+
 # Editor
 *.swp
 *.swo
