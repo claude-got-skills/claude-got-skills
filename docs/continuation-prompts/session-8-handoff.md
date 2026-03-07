@@ -71,11 +71,13 @@ Both specs have been reviewed by separate agents (findings appended below).
 ## Current Git State
 
 ```
-Branch: dev (ahead of main by 2 commits)
+Branch: dev (ahead of main by 4 commits)
 Remote: https://github.com/claude-got-skills/skills.git
 
 Commit history:
-ea9c3d0 (dev) Update skill content: Sonnet 4.6, GA promotions, pricing corrections
+dcb79b2 (dev) Update reference files: GA promotions for tools and memory
+92d9dae Add Session 8 continuation prompt
+ea9c3d0 Update skill content: Sonnet 4.6, GA promotions, pricing corrections
 a173fb6 Add implementation specs and freshness diff report
 ccd5d4a (main) v1.5.0: Mono-repo restructure, add development infrastructure
 2921d11 v1.4.0: Condense SKILL.md, add architecture patterns, deduplicate refs
@@ -84,9 +86,11 @@ ccd5d4a (main) v1.5.0: Mono-repo restructure, add development infrastructure
 
 ### What's on dev but NOT on main:
 - Content freshness updates (Sonnet 4.6, GA promotions, pricing fixes)
+- Reference file updates (tool-types.md, api-features.md — GA status for 6 tools)
 - Implementation specs (browser eval, freshness pipeline)
 - Freshness diff report
 - Updated .gitignore
+- Session 8 continuation prompt
 
 ### Merge strategy:
 After running evals to confirm no regression → merge dev to main → tag v1.6.0
@@ -111,13 +115,13 @@ Check for:
 
 If clean → merge dev to main, tag v1.6.0, push.
 
-### 2. Remaining Content Updates (~1-2 hrs)
+### 2. Remaining Content Updates (~1 hr)
 
-The diff report identified items not yet addressed:
-- **tool-types.md**: Update status fields for GA-promoted tools (tool search, code execution, web fetch, memory, programmatic tool calling)
-- **api-features.md**: Update memory tool from beta to GA, add automatic caching section
-- **knowledge-base/ files**: Update source docs to match current state
-- Scrape missing details: Sonnet 4.6 full specs page, fast mode API shape, dynamic filtering config
+Most updates are done. Remaining items from the diff report:
+- **api-features.md**: Add automatic caching section (new feature, not yet documented)
+- **api-features.md / model-specifics.md**: Add fast mode section (research preview, Opus 4.6)
+- **knowledge-base/ files**: Update source docs to match current state (28 files need refresh)
+- Scrape for missing detail: fast mode API shape (`speed` parameter), dynamic filtering config details
 
 ### 3. Build Freshness Pipeline (~6-7 hrs)
 
