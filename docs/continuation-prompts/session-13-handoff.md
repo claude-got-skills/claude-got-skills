@@ -114,7 +114,14 @@ The skill-creator `run_loop.py` was kicked off with a 20-query eval set (10 shou
 **Pattern B** (~450 chars):
 > "Use when users need to make implementation decisions or configure Claude for their specific use case. Triggers for questions about choosing models, configuring API parameters, enabling beta features, understanding current limits and pricing, comparing platform options..."
 
-Both are dramatically better than the current "MANDATORY TRIGGERS" keyword-stuffing approach. The optimization agent may still be running — check its output and apply the winning description.
+Both are dramatically better than the current "MANDATORY TRIGGERS" keyword-stuffing approach.
+
+**Optimization outcome**: The `run_loop.py` eval runner had 0% trigger detection rate across ALL queries (both positive and negative). Root cause: ~40+ skills loaded in the environment caused skill competition — the eval runner couldn't isolate trigger detection. The descriptions themselves are good quality but **unvalidated empirically**.
+
+**To get reliable data in session 13**: Run from a **clean project directory** with only the test skill (no other plugins/skills). Key fixes needed:
+- Eval set format: `run_eval.py` expects `should_trigger` field, not `expected` (converted file at `/private/tmp/claude-501/eval-set-converted.json`)
+- Model ID: use `claude-sonnet-4-20250514` (not `claude-sonnet-4-5-20250514`)
+- Source `.env` for ANTHROPIC_API_KEY before running improvement step
 
 ### 10. Installed Quality Tools Documented ✅
 
