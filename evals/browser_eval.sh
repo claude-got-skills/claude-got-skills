@@ -89,23 +89,24 @@ do_auth() {
 
   ab_headed open "https://claude.ai/login"
 
-  log "Waiting for successful login (up to 120s)..."
-  log "You should see the Claude.ai home page after logging in."
+  log ""
+  log "Once you are logged in and see the Claude.ai chat page,"
+  log "press ENTER here to save the auth state."
+  log "(The browser will stay open until you press ENTER.)"
+  log ""
+  read -r -p "[$(date +%H:%M:%S)] Press ENTER when logged in... "
 
-  # Wait for redirect to authenticated page (claude.ai redirects vary: /new, /chat, or just /)
-  if ab wait --url "*claude.ai/new*" --timeout 120000 2>/dev/null || \
-     ab wait --url "*claude.ai/chat*" --timeout 5000 2>/dev/null || \
-     ab wait --url "https://claude.ai/" --timeout 5000 2>/dev/null; then
-    log "Login detected. Saving auth state..."
-    ab state save "$AUTH_STATE"
+  log "Saving auth state..."
+  ab_headed state save "$AUTH_STATE"
+
+  if [[ -f "$AUTH_STATE" ]]; then
     log "Auth state saved to: $AUTH_STATE"
     log "You can now run: ./browser_eval.sh"
-    ab close 2>/dev/null || true
   else
-    log_error "Login not detected within timeout. Try again with: ./browser_eval.sh --auth"
-    ab close 2>/dev/null || true
-    exit 1
+    log_error "Failed to save auth state. Try again with: ./browser_eval.sh --auth"
   fi
+
+  ab close 2>/dev/null || true
 }
 
 # --- Auth Validation ----------------------------------------------------------
