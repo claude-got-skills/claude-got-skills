@@ -155,6 +155,7 @@ Read your scope assignment from the prompt. Build a mental model:
 3. Which files have recent churn? (These have higher bug probability)
 4. What deterministic issues were already found? (Don't re-flag)
 5. Are there project-specific check files? (Supplementary standards)
+6. Are there Known Risk Patterns from CLAUDE.md gotchas? (Mandatory checks)
 </step>
 
 <step name="scan">
@@ -196,6 +197,31 @@ grep -rn "console\.\(log\|debug\|info\)" {scope} --include="*.ts" --include="*.t
 grep -rn "\.then(" {scope} --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "\.catch\|await"
 ```
 
+**Mandatory patterns — you MUST run ALL of these regardless of scope:**
+
+```bash
+# Empty catch blocks (swallowed errors)
+grep -rn 'catch\s*{' {scope} --include="*.ts" --include="*.tsx" --include="*.js" 2>/dev/null | grep -v node_modules
+# innerHTML without sanitisation
+grep -rn 'innerHTML' {scope} --include="*.ts" --include="*.tsx" --include="*.js" 2>/dev/null | grep -v node_modules
+# json.dumps before database calls (double-serialisation)
+grep -rn 'json\.dumps\|JSON\.stringify' {scope} --include="*.py" --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v node_modules
+# Clipboard without await (fire-and-forget)
+grep -rn 'clipboard\.writeText\|clipboard\.readText' {scope} --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v node_modules
+# PostgREST/Supabase string interpolation with variables (injection risk)
+grep -rn '\.or(\|\.filter(' {scope} --include="*.ts" --include="*.tsx" 2>/dev/null | grep '\${\|`' | grep -v node_modules
+# 401/403 confusion (wrong HTTP status)
+grep -rn 'forbiddenResponse\|status.*401\|status.*403' {scope} --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v node_modules
+# Module-level None/null/undefined constants (likely config errors)
+grep -rn '^[A-Z_]*\s*=\s*None$\|^const [A-Z_]*\s*=\s*null\|^const [A-Z_]*\s*=\s*undefined' {scope} --include="*.py" --include="*.ts" 2>/dev/null | grep -v node_modules
+# except/catch with pass/empty (error swallowing in Python)
+grep -rn 'except.*:' {scope} --include="*.py" 2>/dev/null | grep -A1 'pass$'
+# as any (type safety bypass)
+grep -rn 'as any' {scope} --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v node_modules | grep -v '\.test\.\|\.spec\.' | head -30
+# Status codes outside valid range
+grep -rn 'status:\s*[0-9]' {scope} --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v node_modules | head -20
+```
+
 These searches are LEADS, not findings. Do not report grep matches directly —
 investigate each lead by reading the surrounding code.
 </step>
@@ -219,6 +245,12 @@ your scope. For each file you read:
 
 Prioritise files with recent churn — they're most likely to contain fresh bugs.
 
+**Minimum coverage requirement:** You MUST read at least 50% of files in your
+scope by count. After reading all large files (>500 lines) and high-churn files,
+read remaining files in order of decreasing size until you reach the 50%
+threshold. Report your actual coverage percentage in the findings file header.
+Skipping most of your scope defeats the purpose of the review.
+
 You have up to ~600K tokens of context headroom for reading and analysis. Use
 it. Read files in full, not just the flagged lines.
 </step>
@@ -233,7 +265,8 @@ Write your findings to the output path specified in your prompt.
 
 **Agent:** {N} of {total}
 **Scope:** {directories and/or files}
-**Files reviewed:** {count of files you actually read}
+**Files in scope:** {total count of files in assigned scope}
+**Files reviewed:** {count of files you actually read} ({percentage}% coverage)
 **Lines reviewed:** {approximate line count}
 **Findings:** {count} (🔴 {n} Critical, 🟠 {n} High, 🟡 {n} Medium, 🔵 {n} Low)
 **Review date:** {YYYY-MM-DD}
