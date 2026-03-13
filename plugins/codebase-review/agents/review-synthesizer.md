@@ -170,7 +170,19 @@ Look for themes that span multiple findings:
 - Systemic patterns (e.g., "auth checks are inconsistent across API routes")
 - Areas of the codebase with concentrated findings
 
-### Step 5: Write REVIEW-REPORT.md
+### Step 5: Delta Analysis (if previous report provided)
+
+If the prompt includes a path to a previous REVIEW-REPORT.md:
+1. Read the previous report
+2. Compare findings by file + issue description (fuzzy match — same file and
+   similar issue title/description counts as the same finding)
+3. Categorise each current finding as:
+   - **NEW** — not present in previous report
+   - **RECURRING** — present in both reports
+4. Identify **RESOLVED** findings — present in previous report but not in this run
+5. Include a "Delta from Previous Review" section in the final report
+
+### Step 6: Write REVIEW-REPORT.md
 
 ```markdown
 # Codebase Review Report
@@ -292,6 +304,53 @@ provides transparency on the review process.}
 |---|-------|-------------|-------|----------|
 | 1 | {dirs} | {description} | {N} | {N} |
 | ... | | | | |
+
+---
+
+## Delta from Previous Review
+
+{Only include this section if a previous report was provided.}
+
+### New Findings
+{List findings not present in the previous report}
+
+### Recurring Findings
+{List findings present in both reports — these are persistent issues}
+
+### Resolved Findings
+{List findings from the previous report that are no longer present}
+```
+
+After writing the Markdown report, also write a machine-readable JSON file to
+the path specified in the prompt (typically `findings.json` in the same
+directory). Format:
+
+```json
+{
+  "date": "YYYY-MM-DD",
+  "codebase": { "files": N, "lines": N },
+  "review": { "scope_agents": N, "verification_agents": N },
+  "findings": [
+    {
+      "id": "F001",
+      "title": "Short title",
+      "severity": "critical|high|medium|low",
+      "category": "security|bug|fragility|architecture|pattern",
+      "confidence": 85,
+      "file": "path/to/file.ts",
+      "lines": "45-52",
+      "issue": "Description of the issue",
+      "impact": "What happens in practice",
+      "suggested_fix": "How to fix",
+      "verification_verdict": "confirmed|downgraded|dismissed|accepted",
+      "delta": "new|recurring|null"
+    }
+  ],
+  "summary": {
+    "critical": N, "high": N, "medium": N, "low": N,
+    "confirmed": N, "downgraded": N, "dismissed": N, "accepted": N
+  }
+}
 ```
 
 </report_mode>

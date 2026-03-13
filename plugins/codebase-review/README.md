@@ -48,6 +48,18 @@ After installation, run `/reload-plugins` to activate.
 
 No configuration required. The plugin adapts agent count to your codebase size.
 
+**Note:** Depending on your Claude Code version and plugin resolution, you may
+need to use the fully-qualified command name: `/codebase-review:codebase-review`.
+
+### Optional flags
+
+Add these to your invocation message (e.g., "/codebase-review --verify-all"):
+
+| Flag | Effect |
+|------|--------|
+| `--verify-all` | Send Medium findings (not just Critical/High) to adversarial verification. Increases cost ~30%. |
+| `--thorough` | Two-pass review with different partition strategies. Roughly doubles cost but captures ~80% of findings vs ~65% single-pass. |
+
 ## Optional: project check files
 
 If your project has `.claude/checks/*.md` files, the review agents will use
@@ -71,9 +83,11 @@ All findings are written to `.planning/reviews/YYYY-MM-DD/`:
 | `partitions.md` | How the codebase was divided across agents |
 | `deterministic-findings.md` | ESLint, tsc, ast-grep output |
 | `scope-N-findings.md` | Raw findings from each review agent |
+| `pattern-checker-findings.md` | Cross-cutting pattern analysis findings |
 | `triage-findings.md` | Deduplicated and ranked findings |
 | `verification-N.md` | Verification verdicts for Critical/High findings |
 | `REVIEW-REPORT.md` | Final report — the one you read |
+| `findings.json` | Machine-readable findings for programmatic consumption |
 
 ## How many agents?
 
