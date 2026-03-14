@@ -242,3 +242,164 @@ def get_source_by_url(url: str) -> Source | None:
 def get_sources_by_priority(priority: str) -> list[Source]:
     """Filter sources by priority level."""
     return [s for s in SOURCES if s.priority == priority]
+
+
+# ── KB-to-Target Mapping (Sprint 4) ─────────────────────────────────────────
+#
+# Maps each knowledge-base file to the user-facing files it can affect.
+# The proposal engine uses this to determine which files to generate edit
+# proposals for when a KB file is updated.
+#
+# Target file paths are relative to PROJECT_DIR.
+# SKILL.md and quick-reference.md are only included for KB files that could
+# affect load-bearing strings (model IDs, pricing, breaking changes).
+
+SKILL_MD = "skills/assistant-capabilities/SKILL.md"
+QUICK_REF = "data/quick-reference.md"
+REF_API = "skills/assistant-capabilities/references/api-features.md"
+REF_TOOLS = "skills/assistant-capabilities/references/tool-types.md"
+REF_AGENT = "skills/assistant-capabilities/references/agent-capabilities.md"
+REF_CODE = "skills/assistant-capabilities/references/claude-code-specifics.md"
+REF_MODEL = "skills/assistant-capabilities/references/model-specifics.md"
+
+PROPOSALS_DIR = PIPELINE_DIR / "proposals"
+PROPOSALS_DIR.mkdir(exist_ok=True)
+
+KB_TO_TARGETS: dict[str, list[str]] = {
+    # ── API / platform capabilities ──────────────────────────────────────
+    "claude-capabilities-new-in-opus-4-6.md": [
+        SKILL_MD, QUICK_REF, REF_MODEL, REF_API,
+    ],
+    "claude-capabilities-pricing.md": [
+        SKILL_MD, QUICK_REF, REF_MODEL,
+    ],
+    "claude-capabilities-features-overview.md": [
+        SKILL_MD, QUICK_REF, REF_MODEL,
+    ],
+    "claude-capabilities-context-windows.md": [
+        REF_API,
+    ],
+    "claude-capabilities-structured-outputs.md": [
+        REF_API,
+    ],
+    "claude-capabilities-files-api.md": [
+        REF_API,
+    ],
+    "claude-capabilities-memory-tool.md": [
+        REF_API,
+    ],
+    "claude-capabilities-search-results-citations.md": [
+        REF_API,
+    ],
+    "claude-capabilities-programmatic-tool-calling.md": [
+        REF_API, REF_TOOLS,
+    ],
+    "claude-capabilities-pdf-support.md": [
+        REF_API,
+    ],
+    "claude-capabilities-computer-use.md": [
+        REF_TOOLS,
+    ],
+    "claude-capabilities-implement-tool-use.md": [
+        REF_TOOLS,
+    ],
+    "claude-capabilities-mcp-via-api.md": [
+        REF_TOOLS,
+    ],
+    # ── Agent / SDK capabilities ─────────────────────────────────────────
+    "claude-capabilities-agent-sdk-overview.md": [
+        REF_AGENT,
+    ],
+    "claude-capabilities-agent-sdk-python.md": [
+        REF_AGENT,
+    ],
+    "claude-capabilities-agent-skills-via-api.md": [
+        REF_AGENT, REF_API,
+    ],
+    "mcp-apps-overview.md": [
+        REF_AGENT,
+    ],
+    # ── Claude Code capabilities ─────────────────────────────────────────
+    "claude-code-capabilities-agent-teams.md": [
+        REF_CODE, REF_AGENT,
+    ],
+    "claude-code-capabilities-automate-with-hooks.md": [
+        REF_CODE, REF_AGENT,
+    ],
+    "claude-code-capabilities-ci-cd.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-cli-reference.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-code-review.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-create-custom-subagents.md": [
+        REF_CODE, REF_AGENT,
+    ],
+    "claude-code-capabilities-create-plugins.md": [
+        REF_CODE, REF_AGENT,
+    ],
+    "claude-code-capabilities-desktop.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-extension-options.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-jetbrains.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-mcp.md": [
+        REF_CODE, REF_AGENT,
+    ],
+    "claude-code-capabilities-plugin-reference.md": [
+        REF_AGENT,
+    ],
+    "claude-code-capabilities-remote-control.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-sandboxing.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-skills.md": [
+        REF_CODE, REF_AGENT,
+    ],
+    "claude-code-capabilities-slack.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-use-chrome-browser.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-use-cli.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-vscode.md": [
+        REF_CODE,
+    ],
+    "claude-code-capabilities-web-sessions.md": [
+        REF_CODE,
+    ],
+}
+
+
+def get_targets_for_kb(kb_filename: str) -> list[str]:
+    """Return target files affected by a KB file update.
+
+    Falls back to an empty list for unmapped KB files.
+    """
+    return KB_TO_TARGETS.get(kb_filename, [])
+
+
+def validate_kb_targets() -> list[str]:
+    """Validate that all mapped target files exist on disk.
+
+    Returns a list of error messages (empty if all valid).
+    """
+    errors = []
+    for kb_file, targets in KB_TO_TARGETS.items():
+        for target in targets:
+            target_path = PROJECT_DIR / target
+            if not target_path.exists():
+                errors.append(f"Target '{target}' for KB '{kb_file}' not found")
+    return errors

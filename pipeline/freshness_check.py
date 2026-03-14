@@ -12,6 +12,7 @@ Usage:
     python -m pipeline.freshness_check --quiet       # Suppress notifications
     python -m pipeline.freshness_check --classify    # Classify changes by actionability
     python -m pipeline.freshness_check --classify --update-kb  # Classify + auto-update KB
+    python -m pipeline.freshness_check --classify --update-kb --propose-edits  # Full pipeline
 """
 
 import argparse
@@ -43,6 +44,7 @@ from .report import CheckReport, SourceResult, save_report, save_classified_repo
 from .notify import notify_changes, notify_errors, notify_no_changes
 from .classify import classify_results, get_api_client
 from .update_kb import update_kb_files, format_update_summary
+from .propose_edits import propose_skill_edits, format_proposal_summary
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +126,7 @@ def run_check(
     quiet: bool = False,
     classify: bool = False,
     update_kb: bool = False,
+    propose_edits: bool = False,
 ) -> CheckReport:
     """Run the freshness check against all specified sources.
 
@@ -135,6 +138,8 @@ def run_check(
         classify: If True, classify detected changes by actionability.
         update_kb: If True (requires classify), auto-update KB files for
             CRITICAL and HIGH changes.
+        propose_edits: If True (requires update_kb), generate edit proposals
+            for SKILL.md and reference files based on KB updates.
 
     Returns:
         CheckReport with all results.
@@ -221,6 +226,7 @@ def run_check(
     # Classify changes if requested
     classifications = []
     kb_update_results = []
+    client = None
     if classify and report.has_changes:
         logger.info("")
         logger.info("--- Classification ---")
@@ -248,6 +254,20 @@ def run_check(
         logger.info("No changes to classify")
     elif update_kb and not classify:
         logger.warning("--update-kb requires --classify — skipping KB update")
+
+    # Generate edit proposals if requested (Sprint 4)
+    proposal_result = None
+    if propose_edits and kb_update_results:
+        logger.info("")
+        logger.info("--- Edit Proposals ---")
+        proposal_result = propose_skill_edits(kb_update_results, client)
+        if proposal_result.changes:
+            summary = format_proposal_summary(proposal_result)
+            logger.info("\n%s", summary)
+    elif propose_edits and not kb_update_results:
+        logger.info("No KB updates to generate proposals from")
+    elif propose_edits and not update_kb:
+        logger.warning("--propose-edits requires --update-kb — skipping proposals")
 
     # Record run history
     record_run_history(
@@ -279,6 +299,10 @@ def run_check(
         error_count = sum(1 for r in kb_update_results if r.status == "error")
         logger.info("  KB updated: %d | created: %d | errors: %d",
                      updated_count, created_count, error_count)
+    if proposal_result and proposal_result.changes:
+        logger.info("  Proposals: %d change(s) | %d skipped | report: %s",
+                     len(proposal_result.changes), len(proposal_result.skipped),
+                     proposal_result.proposal_path)
     if report_path:
         logger.info("  Report:    %s", report_path)
 
@@ -341,6 +365,12 @@ def main() -> None:
         dest="update_kb",
         help="Auto-update KB files for CRITICAL/HIGH changes (requires --classify)",
     )
+    parser.add_argument(
+        "--propose-edits",
+        action="store_true",
+        dest="propose_edits",
+        help="Generate edit proposals for SKILL.md/references from KB updates (requires --update-kb)",
+    )
 
     args = parser.parse_args()
 
@@ -371,6 +401,7 @@ def main() -> None:
         quiet=args.quiet,
         classify=args.classify,
         update_kb=args.update_kb,
+        propose_edits=args.propose_edits,
     )
 
     # Exit with error if any scrapes failed
