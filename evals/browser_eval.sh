@@ -337,55 +337,32 @@ extract_thinking() {
     ab click "$thinking_ref" 2>/dev/null || true
     sleep 2
 
-    # Try to extract the expanded thinking content via JS
-    # After expansion, Claude.ai renders the full thinking in a container
-    # adjacent to or inside the button's expanded region.
+    # Try to extract the expanded thinking content via JS.
+    # Claude.ai DOM structure (as of March 2026):
+    #   grandparent DIV
+    #     ├── DIV > BUTTON[aria-expanded="true"]  (the toggle)
+    #     ├── SPAN                                (status text)
+    #     └── DIV                                 (expanded thinking content)
+    # The thinking content is in the grandparent's children[2+].
     thinking_text=$(ab eval "
       (function() {
-        // Strategy A: Look for expanded thinking containers by common patterns
-        var selectors = [
-          '[data-testid=\"thinking-content\"]',
-          '[data-testid=\"thinking-text\"]',
-          '[aria-expanded=\"true\"] + div',
-          'div[class*=\"thinking\"]',
-          'div[class*=\"reasoning\"]',
-          'details[open] div',
-          'div[class*=\"thought\"]',
-          'div[class*=\"extended-thinking\"]'
-        ];
-        for (var i = 0; i < selectors.length; i++) {
-          var els = document.querySelectorAll(selectors[i]);
-          if (els.length > 0) {
-            var parts = [];
-            for (var j = 0; j < els.length; j++) {
-              var t = els[j].innerText;
-              if (t && t.trim().length > 20) parts.push(t);
-            }
-            var text = parts.join('\n');
-            if (text && text.trim().length > 20) return text;
-          }
-        }
+        var btn = document.querySelector('button[aria-expanded=\"true\"]');
+        if (!btn) return '';
 
-        // Strategy B: After clicking the toggle, look for any newly visible
-        // large text block that wasn't in the response area
-        var buttons = document.querySelectorAll('button[aria-expanded=\"true\"]');
-        for (var i = 0; i < buttons.length; i++) {
-          var next = buttons[i].nextElementSibling;
-          if (next && next.innerText && next.innerText.trim().length > 20) {
-            return next.innerText;
-          }
-          // Check inside the button's parent for expanded content
-          var parent = buttons[i].parentElement;
-          if (parent) {
-            var children = parent.children;
-            for (var j = 0; j < children.length; j++) {
-              if (children[j] !== buttons[i] && children[j].innerText &&
-                  children[j].innerText.trim().length > 20) {
-                return children[j].innerText;
-              }
-            }
+        // Navigate to grandparent where expanded content lives
+        var gp = btn.parentElement ? btn.parentElement.parentElement : null;
+        if (!gp) return '';
+
+        // Collect text from children after the toggle and status
+        var parts = [];
+        var children = gp.children;
+        for (var i = 2; i < children.length; i++) {
+          var text = children[i].innerText;
+          if (text && text.trim().length > 0) {
+            parts.push(text.trim());
           }
         }
+        if (parts.length > 0) return parts.join('\n');
 
         return '';
       })()
