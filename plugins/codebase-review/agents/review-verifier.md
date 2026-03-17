@@ -186,6 +186,20 @@ When dismissing, provide CLEAR evidence:
 to include a real finding that seems borderline than to dismiss a genuine bug.
 The cost of a false negative (missing a real bug) is much higher than the cost
 of a false positive in the final report.
+
+**Test Integrity findings (category: test-integrity):** These require a
+different verification approach. Instead of just reading the cited code:
+
+1. Read BOTH the test file AND the production file it covers
+2. Determine what the test SHOULD assert based on the test setup context
+   (auth state, input data, expected side effects)
+3. Check if the test's current assertion matches INTENDED behaviour, not
+   just ACTUAL behaviour — if the production code and the test both assert
+   the same wrong value, both are wrong
+4. For Pattern 2 (mocking SUT): verify whether the mock replaces the system
+   under test or just its dependencies
+5. For Pattern 4 (co-modification): read the commit diff to understand
+   whether the test change was justified by a correct production change
 </step>
 
 </process>

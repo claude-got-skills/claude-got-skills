@@ -161,7 +161,7 @@ and don't need verification.
 Sort all surviving findings:
 1. Severity: Critical > High > Medium > Low
 2. Confidence: highest first within severity
-3. Category: Security > Bug > Fragility > Architecture > Pattern
+3. Category: Security > Bug > Test Integrity > Fragility > Architecture > Pattern
 
 ### Step 4: Identify Cross-Cutting Patterns
 
@@ -215,6 +215,7 @@ of strength if observed.}
 |----------|-------|
 | Security | {N} |
 | Bug | {N} |
+| Test Integrity | {N} |
 | Fragility | {N} |
 | Architecture | {N} |
 | Pattern | {N} |
@@ -248,6 +249,33 @@ suggested fix. Group by category if there are many.}
 ## Low Findings
 
 {All 🔵 findings. Condensed, grouped by category.}
+
+---
+
+## Test Integrity Analysis
+
+{Only include this section if test-integrity-findings.md was provided as input.}
+
+**Test files analysed:** {N}
+**Detection patterns run:** 6
+**Test integrity findings:** {N} (by pattern: P1: {n}, P2: {n}, P3: {n}, P4: {n}, P5: {n}, P6: {n})
+
+### Systemic Test Issues
+
+{If multiple findings share the same root cause — e.g., "403/401 confusion
+across 15 route tests" — summarise the systemic issue here with the full
+list of affected files.}
+
+### Individual Test Findings
+
+{These are included in the main findings list above by severity. This section
+cross-references them with test pattern numbers for users who want to
+understand the detection methodology.}
+
+| Finding | Test Pattern | Test File | Production File |
+|---------|-------------|-----------|-----------------|
+| {id} | P{n}: {name} | {test_file} | {production_file} |
+| ... | | | |
 
 ---
 
@@ -335,15 +363,19 @@ directory). Format:
       "id": "F001",
       "title": "Short title",
       "severity": "critical|high|medium|low",
-      "category": "security|bug|fragility|architecture|pattern",
+      "category": "security|bug|test-integrity|fragility|architecture|pattern",
       "confidence": 85,
-      "file": "path/to/file.ts",
-      "lines": "45-52",
+      "file": "path/to/file.ts (for test-integrity: this is the test file)",
+      "lines": "45-52 (for test-integrity: these are the test file lines)",
       "issue": "Description of the issue",
       "impact": "What happens in practice",
       "suggested_fix": "How to fix",
       "verification_verdict": "confirmed|downgraded|dismissed|accepted",
-      "delta": "new|recurring|null"
+      "delta": "new|recurring|null",
+      "production_file": "path/to/file.ts (test-integrity findings only)",
+      "production_lines": "32-35 (test-integrity findings only)",
+      "test_pattern": "1-6 (test-integrity findings only)",
+      "test_pattern_name": "wrong-value-assertion (test-integrity findings only)"
     }
   ],
   "summary": {

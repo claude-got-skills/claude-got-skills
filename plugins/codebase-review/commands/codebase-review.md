@@ -94,6 +94,39 @@ grep -rn "TODO\|FIXME\|HACK\|XXX\|BUG\|WARN" \
   . 2>/dev/null | grep -v node_modules | wc -l
 ```
 
+**1b-extra. Detect test infrastructure (if `--test-integrity` is active)**
+
+If the `--test-integrity` flag is present, OR if test files comprise >10% of
+the codebase by file count, detect the test infrastructure:
+
+```bash
+# Find test files and framework
+find . -type f \( -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" \
+  -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" \
+  -o -name "*.test.py" -o -name "*_test.py" -o -name "*_test.go" \) \
+  -not -path "*/node_modules/*" -not -path "*/.next/*" 2>/dev/null | wc -l
+```
+
+```bash
+# Identify test framework and config
+ls vitest.config.* jest.config.* pytest.ini pyproject.toml setup.cfg 2>/dev/null
+```
+
+```bash
+# Find test directories
+find . -type d \( -name "__tests__" -o -name "test" -o -name "tests" -o -name "spec" \) \
+  -not -path "*/node_modules/*" 2>/dev/null
+```
+
+```bash
+# Find mock helpers (essential context for Pattern 2 and 6 detection)
+find . -type f \( -name "*mock*" -o -name "*fixture*" -o -name "*helper*" \) \
+  -path "*test*" -not -path "*/node_modules/*" 2>/dev/null
+```
+
+Store the test directory paths, test file count, test framework, and mock
+helper paths for the test integrity checker agent.
+
 **1c. Run deterministic tools**
 
 Run whichever of these are available in the project. Capture output for review
@@ -279,6 +312,38 @@ Use the same finding format as scope review agents.
 
 Use `subagent_type: "pattern-checker"` for this agent.
 
+**Test integrity checker agent (if `--test-integrity` is active):** In addition
+to the above agents, spawn 1 `test-integrity-checker` agent with this prompt:
+
+```
+## Task: Test integrity analysis
+
+Analyse the test suite for tests that pass but validate incorrect behaviour.
+Focus on the 6 detection patterns defined in your agent instructions.
+
+## Test Directory Structure
+{test directories, test framework, test file count from Wave 1 reconnaissance}
+
+## Mock Helpers
+{paths to mock helper files identified in Wave 1 — read these first}
+
+## Recent Churn (last 30 days)
+{files with recent changes — co-modification detection focuses here}
+
+## Recent Bug-Fix Commits
+{git log output — commits with "fix" in message are high-signal for Pattern 4}
+
+## Known Issues — DO NOT re-flag these
+{deterministic findings from Wave 1}
+
+## Output
+Write your findings to: {REVIEW_DIR}/test-integrity-findings.md
+Use the finding format defined in your agent instructions, with the additional
+Test Pattern and Production file fields.
+```
+
+Use `subagent_type: "test-integrity-checker"` for this agent.
+
 After launching all agents, report progress to the user as each agent completes
 rather than waiting silently. Example: "Agent 3/6 complete (lib/ scope — found
 8 issues)." This gives the user visibility during what can be a 15-20 minute
@@ -287,8 +352,8 @@ wait.
 Once ALL agents have completed, verify:
 
 ```bash
-ls -la $REVIEW_DIR/scope-*-findings.md $REVIEW_DIR/pattern-checker-findings.md 2>/dev/null | wc -l
-# Should match the number of scope agents + 1 (pattern checker)
+ls -la $REVIEW_DIR/scope-*-findings.md $REVIEW_DIR/pattern-checker-findings.md $REVIEW_DIR/test-integrity-findings.md 2>/dev/null | wc -l
+# Should match: scope agents + 1 (pattern checker) + 1 (test integrity, if active)
 ```
 
 Read the header of each findings file to get the counts. If any agent failed
@@ -304,7 +369,8 @@ Spawn 1 `review-synthesizer` agent with this prompt:
 ## Task: Triage review findings
 
 ## Input Files
-{list all scope-N-findings.md AND pattern-checker-findings.md paths that were successfully written}
+{list all scope-N-findings.md, pattern-checker-findings.md, AND test-integrity-findings.md
+(if test integrity checking was active) paths that were successfully written}
 
 ## Deterministic Findings
 {path to deterministic-findings.md}
@@ -414,7 +480,15 @@ provide its path here. Otherwise "None — first run."}
 7. Also write a machine-readable JSON file to: {REVIEW_DIR}/findings.json
    containing all findings as an array of objects with fields: id, title,
    severity, category, confidence, file, lines, issue, impact, suggested_fix,
-   verification_verdict (if applicable)
+   verification_verdict (if applicable).
+   For test integrity findings (category: "test-integrity"), also include:
+   production_file, production_lines, test_pattern, test_pattern_name.
+8. If test integrity findings are present, add a "Test Integrity Analysis"
+   section to the report after the main findings, with:
+   - Test files analysed count
+   - Findings by detection pattern (P1-P6)
+   - Systemic test issues (grouped findings sharing the same root cause)
+   - Cross-reference to individual findings in the main severity-ranked list
 ```
 
 ---
@@ -435,11 +509,245 @@ file for full detail.
 If zero findings survived verification, congratulate the user — that's a
 genuinely healthy codebase.
 
+After presenting results, proceed to Wave 6.
+
+---
+
+### Wave 6: Spec Generation
+
+This wave generates fix specifications from review findings. It runs as an
+interactive post-report step (after Present Results) or standalone via
+the `--specs` flag.
+
+**6a. Offer spec generation**
+
+After presenting results, display:
+
+First, read `$REVIEW_DIR/findings.json` and count findings by severity. Estimate
+work packages as: `total findings / 3`, clamped to a minimum of the number of
+distinct files referenced. Then display:
+
+```
+---
+
+Would you like me to generate fix specifications for these findings?
+
+Options:
+1. Critical + High findings (default) — {N} findings → estimated {M} work packages
+2. All findings — {N} findings → estimated {M} work packages
+3. Custom — specify severities (e.g., "Critical+High+Medium")
+4. No thanks
+
+Pick an option or type severity levels:
+```
+
+If the user selects option 4 or declines, stop here.
+
+**6b. Filter findings**
+
+Read `$REVIEW_DIR/findings.json`. Filter to the selected severity levels.
+
+If `$REVIEW_DIR/test-integrity-findings.json` also exists (from a test
+integrity checker run), merge those findings into the set. Match
+test-integrity findings with review findings that reference the same
+production file — these belong in the same work package.
+
+**6c. Group findings into work packages**
+
+The orchestrator performs grouping directly (no agent needed). Apply these
+heuristics in priority order:
+
+1. **Shared root cause** — findings whose `suggested_fix` fields share >60%
+   of significant tokens (excluding stop words, file paths, line numbers).
+   Also group findings that reference the same CLAUDE.md gotcha. Additionally,
+   findings with the same `category` whose `issue` text shares >50% of
+   significant keywords indicate a shared root cause.
+2. **Same file** — findings in the same file always group together regardless
+   of category.
+3. **Same directory + same category** — findings in the same directory with
+   matching categories group together.
+4. **Architectural theme** — findings with category `Architecture` or
+   referencing the same architectural concept group into a single spec.
+5. **Remaining singletons** — ungrouped findings become their own work package.
+
+**Group size limits:** Maximum 6 findings per work package. If a group exceeds
+6, split by severity (Critical+High in one, Medium+Low in another).
+
+Sort groups by maximum severity (descending), then by finding count (descending).
+Assign IDs: WP1, WP2, etc. Generate a filename slug from the group title.
+
+Report the plan:
+
+```
+Grouped {N} findings into {M} work packages:
+
+  WP1: {title} ({finding IDs}) — {N} files
+  WP2: {title} ({finding IDs}) — {N} files
+  ...
+
+Spawning {M} spec-writer agents in parallel...
+```
+
+**6d. Spawn spec-writer agents**
+
+Spawn M `spec-writer` agents in a SINGLE message with `run_in_background: true`.
+Each agent receives this prompt:
+
+```
+You are spec-writer agent for work package {WP_ID}.
+
+## Work Package: {title}
+
+## Findings
+
+{For each finding in the group, paste the full JSON object from findings.json
+formatted as readable markdown:}
+
+### {finding.id}: {finding.title}
+- **Severity:** {finding.severity}
+- **Category:** {finding.category}
+- **Confidence:** {finding.confidence}
+- **File:** `{finding.file}:{finding.lines}`
+- **Verification:** {finding.verification_verdict}
+- **Issue:** {finding.issue}
+- **Impact:** {finding.impact}
+- **Suggested fix:** {finding.suggested_fix}
+
+{If finding.category is "test-integrity":}
+- **Source:** test-integrity-checker
+- **Test file:** `{finding.file}:{finding.lines}` (for test-integrity findings, `file` is the test file)
+- **Production file:** `{finding.production_file}:{finding.production_lines}`
+- **Test pattern:** {finding.test_pattern} — {finding.test_pattern_name}
+- Note: The spec-writer should extract "tested behaviour" and "correct behaviour"
+  from the finding's `issue` and `suggested_fix` fields when writing the Test
+  Correction section.
+
+## Codebase Context
+
+{Executive summary from REVIEW-REPORT.md}
+
+## Known Gotchas
+
+{Relevant CLAUDE.md gotchas, if any findings reference documented patterns}
+
+## Reference Implementation
+
+{If the codebase has a correct example of the pattern these findings violate,
+provide the file path so the agent can read and cite it.}
+
+## Output
+
+Write the spec to: {REVIEW_DIR}/specs/{slug}.md
+```
+
+Use `subagent_type: "spec-writer"` for each agent.
+
+Report progress as each agent completes.
+
+**6e. Write INDEX.md**
+
+After ALL spec-writer agents complete, the orchestrator writes
+`$REVIEW_DIR/specs/INDEX.md` directly (no agent needed). Format:
+
+```markdown
+# Fix Specs Index
+
+**Review date:** {YYYY-MM-DD}
+**Source report:** REVIEW-REPORT.md
+**Total findings addressed:** {N} ({n} Critical, {n} High, {n} Medium, {n} Low)
+**Work packages:** {N}
+**Severities included:** {severity filter used}
+
+---
+
+## Execution Priority
+
+Execute in this order. Higher-severity, lower-complexity work packages first.
+
+| # | Spec | Findings | Severity | Complexity | Files | Dependencies |
+|---|------|----------|----------|------------|-------|--------------|
+| WP1 | [{title}]({filename}) | F001, F002 | Critical+High | {from spec} | {N} | {deps or None} |
+| ... | | | | | | |
+
+---
+
+## Finding-to-Spec Mapping
+
+| Finding | Severity | Spec | Title |
+|---------|----------|------|-------|
+| F001 | Critical | WP1 | {short title} |
+| ... | | | |
+
+---
+
+## Findings NOT Addressed
+
+| Finding | Severity | Title | Reason excluded |
+|---------|----------|-------|-----------------|
+| F020 | Low | {title} | Below severity threshold |
+| ... | | | |
+
+---
+
+## Notes
+
+{Cross-cutting observations: deployment ordering, shared dependencies
+between WPs, recommended parallelism strategy for implementation.}
+```
+
+**6f. Present spec results**
+
+```
+Fix specifications generated:
+
+  📁 {REVIEW_DIR}/specs/
+  ├── INDEX.md (start here)
+  ├── {slug-1}.md (WP1 — {severity}, {complexity})
+  ├── {slug-2}.md (WP2 — {severity}, {complexity})
+  └── ...
+
+{N} findings across {M} work packages. Recommended execution order is in INDEX.md.
+```
+
 ---
 
 ## Optional Flags
 
 Check the user's invocation message for these optional flags:
+
+### `--specs` / `--generate-specs`
+
+Skip Waves 1-5 and run only Wave 6 (spec generation) against an existing
+review. Process:
+
+1. Find the most recent `REVIEW-REPORT.md` and `findings.json` under
+   `.planning/reviews/` by listing date directories and picking the latest.
+2. If `specs/INDEX.md` already exists for that review date, ask:
+   "Specs already exist for the {date} review. Regenerate? (y/n)"
+3. Read `findings.json` (and `test-integrity-findings.json` if present).
+4. Set `REVIEW_DIR` to the found review directory.
+5. Proceed from Wave 6 step 6a (severity selection prompt).
+
+### `--test-integrity`
+
+Enable test integrity checking in Wave 2. Spawns an additional
+`test-integrity-checker` agent that analyses the test suite for tests that
+pass but validate incorrect behaviour. Detects 6 patterns:
+
+1. Wrong value assertions (e.g., 403 instead of 401 for unauthenticated)
+2. Mocking the system under test (test exercises mocks, not real code)
+3. Weak assertions (toBeDefined/toBeTruthy instead of specific values)
+4. Co-modification (test assertions changed to match wrong production code)
+5. Dead code with passing tests (tested code has zero production callers)
+6. Mock surface area exceeds assertion surface area
+
+Test integrity findings flow through the standard triage (Wave 3),
+verification (Wave 4), and reporting (Wave 5) pipeline with category
+`test-integrity`. They also integrate with Wave 6 spec generation.
+
+**Auto-activation:** If not explicitly set, test integrity checking
+activates automatically when test files comprise >10% of the codebase
+by file count (indicating meaningful test investment worth checking).
 
 ### `--verify-all`
 

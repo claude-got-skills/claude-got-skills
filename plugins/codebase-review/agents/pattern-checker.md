@@ -203,6 +203,37 @@ grep -rn 'onClick' . \
   | grep '<div\|<span\|<li' | grep -v 'role=\|tabIndex\|onKeyDown'
 ```
 
+### Test integrity quick scan (lightweight — runs even without --test-integrity)
+
+These patterns catch the most obvious test integrity violations without
+needing the full test-integrity-checker agent. Run these against test files.
+
+```bash
+# Invalid HTTP status codes in test assertions (outside 100-599 range)
+grep -rn 'toBe\s*(\s*[0-9]\{1,2\}\s*)' . \
+  --include="*.test.ts" --include="*.test.tsx" --include="*.spec.ts" \
+  2>/dev/null | grep -v node_modules | grep 'status'
+
+# global.fetch mock in API route test files (likely testing mock, not route)
+grep -rln 'global\.fetch.*mock\|global\.fetch.*fn\|vi\.fn.*fetch\|jest\.fn.*fetch' . \
+  --include="*.test.ts" --include="*.test.tsx" \
+  2>/dev/null | grep -v node_modules
+
+# Test files with ONLY weak assertions (toBeDefined/toBeTruthy as sole expect)
+# Identify test files where all expects use weak matchers
+for f in $(find . -name "*.test.ts" -o -name "*.test.tsx" 2>/dev/null | grep -v node_modules | head -50); do
+  strong=$(grep -c 'toBe(\|toEqual(\|toContain(\|toMatchObject(\|toHaveBeenCalledWith(' "$f" 2>/dev/null || echo 0)
+  weak=$(grep -c 'toBeDefined()\|toBeTruthy()\|not\.toBeNull()' "$f" 2>/dev/null || echo 0)
+  if [ "$weak" -gt 0 ] && [ "$strong" -eq 0 ]; then
+    echo "$f: $weak weak assertions, 0 strong assertions"
+  fi
+done
+```
+
+If any of these quick scan patterns produce matches, report them as Medium
+confidence findings with category "Test Integrity" and note that a full
+`--test-integrity` run would provide deeper analysis.
+
 ### Known Risk Patterns (from CLAUDE.md gotchas)
 
 If the prompt includes a "Known Risk Patterns" section, generate additional
@@ -249,7 +280,7 @@ Write to the output path specified in your prompt.
 ### [{SEVERITY}] {Short descriptive title}
 
 **File:** `{file_path}`:{start_line}-{end_line}
-**Category:** {Bug | Pattern | Security | Architecture | Fragility}
+**Category:** {Bug | Pattern | Security | Architecture | Fragility | Test Integrity}
 **Confidence:** {0-100}
 **Pattern:** {which search pattern found this}
 
