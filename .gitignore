@@ -47,6 +47,9 @@ eval-trigger-*.txt
 evals/eval-set-*.json
 evals/description-optimization-results/
 
+# Planning/session artifacts (internal)
+.planning/
+
 # Editor
 *.swp
 *.swo
