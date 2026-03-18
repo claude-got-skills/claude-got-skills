@@ -1,0 +1,59 @@
+name: Build Skill ZIP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/assistant-capabilities/skills/**'
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build skill ZIP
+        run: |
+          ZIP_NAME="assistant-capabilities.zip"
+
+          # Create ZIP with the skill directory structure preserved
+          # Claude.ai/Desktop expects: folder/SKILL.md + folder/references/
+          cd plugins/assistant-capabilities/skills
+          zip -r "../../../${ZIP_NAME}" assistant-capabilities/ \
+            -x "assistant-capabilities/.*"
+          cd ../../..
+
+          echo "Built ${ZIP_NAME}:"
+          unzip -l "${ZIP_NAME}"
+
+      - name: Get version from marketplace.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.plugins[] | select(.name == "assistant-capabilities") | .version' .claude-plugin/marketplace.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: v${{ steps.version.outputs.version }}
+        run: |
+          ZIP_NAME="assistant-capabilities.zip"
+
+          # Check if release exists
+          if gh release view "${RELEASE_VERSION}" &>/dev/null; then
+            # Update existing release with new ZIP
+            gh release upload "${RELEASE_VERSION}" "${ZIP_NAME}" --clobber
+            echo "Updated ${ZIP_NAME} on release ${RELEASE_VERSION}"
+          else
+            # Create new release
+            gh release create "${RELEASE_VERSION}" "${ZIP_NAME}" \
+              --title "assistant-capabilities ${RELEASE_VERSION}" \
+              --generate-notes
+            echo "Created release ${RELEASE_VERSION} with ${ZIP_NAME}"
+          fi

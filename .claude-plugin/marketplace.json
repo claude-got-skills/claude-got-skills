@@ -9,20 +9,13 @@
       "name": "assistant-capabilities",
       "description": "Always-on capabilities awareness — ensures Claude has accurate, current knowledge of its own features across all platforms.",
       "version": "2.5.0",
-      "source": "./"
+      "source": "./plugins/assistant-capabilities"
     },
     {
       "name": "codebase-review",
       "description": "Full codebase quality review with parallel analysis agents, deterministic tooling, adversarial verification, structured reporting, and automated fix spec generation.",
       "version": "1.4.0",
       "source": "./plugins/codebase-review"
-    }
-  ],
-  "skills": [
-    {
-      "name": "assistant-capabilities",
-      "path": "skills/assistant-capabilities",
-      "description": "Comprehensive Claude capabilities reference — current models, vision, PDFs, API features, Code Review, Remote Control, web sessions, Slack integration, extension patterns, platform availability (Claude.ai, Desktop, Code, CoWork), competitor migration guidance, and breaking changes."
     }
   ]
 }

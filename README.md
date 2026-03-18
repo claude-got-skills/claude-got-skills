@@ -50,7 +50,7 @@ categories; the full skill delivers +75-500% lift.
 | Cross-Platform Awareness | 1.60 | 4.10 | +156% |
 | Hallucination Detection | 1.20 | 3.20 | +167% |
 
-See the [full skill documentation](skills/assistant-capabilities/SKILL.md) for
+See the [full skill documentation](plugins/assistant-capabilities/skills/assistant-capabilities/SKILL.md) for
 what it covers.
 
 ---
@@ -91,15 +91,16 @@ installation, usage, and output details.
 ```
 .claude-plugin/
   marketplace.json            # Marketplace catalogue
-  plugin.json                 # Root plugin manifest
-hooks/                        # SessionStart hook (capabilities injection)
-scripts/                      # Hook scripts
-data/                         # Condensed capabilities reference (Tier 1)
-skills/
-  assistant-capabilities/     # Full capabilities skill (Tier 2)
 plugins/
+  assistant-capabilities/     # Capabilities awareness plugin
+    .claude-plugin/plugin.json
+    hooks/                    # SessionStart hook (capabilities injection)
+    scripts/                  # Hook scripts
+    data/                     # Condensed capabilities reference (Tier 1)
+    skills/
+      assistant-capabilities/ # Full capabilities skill (Tier 2)
   codebase-review/            # Multi-agent codebase review plugin
-    agents/                   # 4 agent definitions
+    agents/                   # 6 agent definitions
     commands/                 # Slash command
     references/               # ast-grep starter rules
 evals/                        # Evaluation framework
